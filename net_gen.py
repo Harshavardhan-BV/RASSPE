@@ -16,7 +16,7 @@ def toggle_n(n:int, Self=None):
     - G (pd.DataFrame): Pandas DataFrame representing the graph.
 
     Saves:
-    - T{n}.topo (File): Topology file of the graph.
+    - ./TOPO/T{n}.topo (File): Topology file of the graph.
     """
     if n<=1:
         raise ValueError('n must be greater than 1')
@@ -56,7 +56,7 @@ def team_n(n:int, m:int):
     - G (pd.DataFrame): Pandas DataFrame representing the graph.
 
     Saves:
-    - Team{n}_{m}.topo (File): Topology file of the graph.
+    - ./TOPO/Team{n}_{m}.topo (File): Topology file of the graph.
     """
     if (n<=1) or (m<=1):
         raise ValueError('n and m must be greater than 1')
