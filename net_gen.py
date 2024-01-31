@@ -1,4 +1,3 @@
-#%%
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -37,7 +36,9 @@ def toggle_n(n:int, Self=None):
             raise ValueError('Self must be either SA or SI')
         # Set the self loops as activation or inhibition
         for node in G.nodes:
-            G.edges[(node,node)]['Action'] = selfweight
+            G.add_edge(node, node, Action=selfweight)
+    else:
+        Self = ''
     # Convert to topofile
     G = nx.to_pandas_edgelist(G)
     G.to_csv('./TOPO/T'+str(n)+Self+'.topo', sep='\t', index=False)
