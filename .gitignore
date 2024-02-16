@@ -159,5 +159,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore topofiles
+# Ignore topofiles, results and log
 TOPO/
+Results/
+racipe_log.txt
