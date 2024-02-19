@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import networkx as nx
+import itertools as it
 
 def toggle_n(n:int, Self=None):
     """
@@ -122,7 +123,7 @@ def team_n_rand_split(n:int, m_tot:int):
     G.to_csv(fname, sep='\t', index=False)
     return G
 
-def embedded_toggle(n, size, density, nnets, Self=None):
+def embedded_toggle(n:int, size:int, density:float, nnets:int, Self=None):
     """
     Generates directed graphs of toggle_n embedded in a random graphs.
 
@@ -130,6 +131,7 @@ def embedded_toggle(n, size, density, nnets, Self=None):
     - n (int): Number of nodes in the graph.
     - size (int): Number of nodes in the random graph.
     - density (float): Density (avg. number of edges per node) of the random graph.
+    - nnets (int): Number of random networks to generate.
     - Self (str, optional): Type of self-loops. Default is None.
 
     Returns:
@@ -138,15 +140,17 @@ def embedded_toggle(n, size, density, nnets, Self=None):
     Saves:
     - ./TOPO/Embedded_T{n}_{size}_{density}_{i}.topo (File): Topology file of the graph.
     """
+    if (n<=1) or (size<=1):
+        raise ValueError('n and size must be greater than 1')
     # Generate the toggle_n graph
     G_t = toggle_n(n, Self)
     G_t.columns = ['source', 'target', 'weight']
     G_t = nx.from_pandas_edgelist(G_t, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph)
     for i in range(nnets):
         # Generate a random graph
-        G_r = nx.gnm_random_graph(size, density*size, directed=True)
+        G_r = nx.gnm_random_graph(size, round(density*size), directed=True)
         # Add edge weights to the random graph
-        act = np.random.randint(1,3,len(G_r.edges))
+        act = np.random.randint(1,3,len(list(G_r.edges)))
         nx.set_edge_attributes(G_r, dict(zip(G_r.edges, act)), 'weight')
         # Add the toggle_n graph to the random graph 
         G = nx.compose(G_t, G_r)
@@ -162,3 +166,64 @@ def embedded_toggle(n, size, density, nnets, Self=None):
         fname = f'./TOPO/Embedded_T{n}_{size}_{density}_{i}.topo'
         df = nx.to_pandas_edgelist(G)
         df.to_csv(fname, sep='\t', index=False)
+
+def impure_n(n:int, m:int, nnets:int):
+    """
+    Generates fully connected directed graphs with n nodes and m impurities (edges with opposite sign).
+
+    Parameters:
+    - n (int): Number of nodes in the graph.
+    - m (int): Number of Impure edges.
+    - nnets (int): Number of random networks to generate.
+
+    Returns:
+    - None
+
+    Saves:
+    - ./TOPO/Impure_T{n}_{imp}_{i}.topo (File): Topology file of the graph.
+    """
+    if (n<=1) or (m<0) or (m>n*(n-1)):
+        raise ValueError('n must be greater than 1; m must be greater than 0 and less than n*(n-1)')
+    # Initialize empty n node graph
+    G = nx.DiGraph()
+    G.add_nodes_from(range(0,n))
+    # Pandas edgelist of complete graph
+    df_c = nx.to_pandas_edgelist(nx.complete_graph(n,nx.DiGraph()))
+    df_c['type']=2
+    # generate all possible pairs of nodes
+    node_pairs = list(it.product(range(0, n), repeat=2))
+    # filter out self-loops
+    node_pairs = list(filter(lambda x: x[0] != x[1], node_pairs))
+    # create all possible permutations of m edges
+    edge_permutations = list(it.combinations(node_pairs, m))
+    np.random.shuffle(edge_permutations)
+    # create a list of graphs with each permutation of edges
+    g_uniq = []
+    g_n = 0
+    for edges in edge_permutations:
+        G1 = G.copy()
+        G1.add_edges_from(edges)
+        for G2 in g_uniq:
+            # if the graph is isomorphic to existing do nothing
+            if nx.algorithms.is_isomorphic(G1, G2):
+                break
+        else:
+            # or add it to unique list
+            g_uniq.append(G1)
+            # Convert the Graph to dataframe
+            df_g = nx.to_pandas_edgelist(G)
+            df = df_c.copy()
+            # ????
+            keys = list(df_g.columns.values)
+            i1 = df[keys].set_index(keys).index
+            i2 = df_g.set_index(keys).index
+            # Set the edge as activation if edge exists in df_g
+            df.loc[i1.isin(i2),'type']=1
+            # Rename nodes
+            df[keys] = df[keys].applymap(lambda x: chr(ord('A') + x))
+            # Save the topofile
+            df.to_csv('./TOPO/Impure_'+str(n)+'_'+str(m)+'_'+str(g_n)+'.topo',sep='\t',index=False)
+            # increment the graph number
+            g_n+=1
+            if g_n>=nnets:
+                break
