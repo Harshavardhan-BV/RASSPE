@@ -129,3 +129,77 @@ def gkNorm(sol,param):
     # Do the normalization
     sol.iloc[:,2:] = (2**sol.loc[:,nodes])*k.loc[:,nodes]/g.loc[:,nodes]
     return sol
+
+def TopoToAdj(topo:str, plot:bool=True):
+    """
+    Convert a topofile to an adjacency matrix.
+
+    Parameters:
+    topo (str): The name of the topofile.
+    plot (bool): Whether to plot the adjacency matrix or not. Default is True.
+
+    Returns:
+    pd.DataFrame: The adjacency matrix.
+
+    Saves:
+    ./figures/AdjMat_{topo}.svg (File): The plot of the adjacency matrix.
+    """
+    # Read the topofile as a dataframe
+    df = pd.read_csv('./TOPO/'+topo+'.topo',sep='\t')
+    # Replace 2 with -1 for column 2
+    df[df.columns[2]] = df[df.columns[2]].replace(2,-1)
+    # Generate the graph
+    G = nx.from_pandas_edgelist(df, source=df.columns[0], target=df.columns[1], edge_attr=df.columns[2], create_using=nx.DiGraph)
+    # Convert to adjacency matrix
+    adjMat = nx.to_pandas_adjacency(G, weight=df.columns[2])
+    if plot:
+        sns.clustermap(adjMat, cmap='coolwarm', vmin=-1, vmax=1)
+        plt.savefig(f'./figures/AdjMat_{topo}.svg')
+        plt.clf()
+        plt.close()
+    return adjMat
+
+def TopoToInfl(topo:str, lmax:int=10, plot:bool=True):
+    """
+    Convert a topofile to an influence matrix.
+
+    Parameters:
+    topo (str): The name of the topofile.
+    lmax (int): The maximum path length of influence. Default is 10.
+    plot (bool): Whether to plot the influence matrix or not. Default is True.
+
+    Returns:
+    pd.DataFrame: The influence matrix.
+
+    Saves:
+    ./figures/InflMat_{topo}_{lmax}.svg (File): The plot of the influence matrix.
+    """
+    adjMat = TopoToAdj(topo, plot=False)
+    nodes = adjMat.columns
+    adjMat = adjMat.to_numpy()
+    # Set the element to 1 if non-zero
+    adjMax = adjMat.copy()
+    adjMax[adjMax != 0] = 1.0
+    # Initialise the InfluenceMatrix, numerator and denominator
+    InflMat = np.zeros_like(adjMat)
+    num = np.identity(adjMat.shape[0])
+    den = np.identity(adjMat.shape[0])
+    for i in range(1,lmax+1):
+        num = np.matmul(num, adjMat)
+        den = np.matmul(den, adjMax)
+        # If denominator is zero, set to 0 to avoid division by zero
+        res = np.divide(num, den, out=np.zeros_like(num), where=den!=0)
+        # Change nan to zero
+        res = np.nan_to_num(res)
+        # Add the result to the InfluenceMatrix
+        InflMat += res
+    # Normalise the matrix
+    InflMat = InflMat/lmax
+    # Convert to datafram
+    InflMat = pd.DataFrame(InflMat, index=nodes, columns=nodes)
+    if plot:
+        sns.clustermap(InflMat, cmap='coolwarm', vmin=-1, vmax=1)
+        plt.savefig(f'./figures/InflMat_{topo}_{lmax}.svg')
+        plt.clf()
+        plt.close()
+    return InflMat

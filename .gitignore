@@ -162,4 +162,5 @@ cython_debug/
 # Ignore topofiles, results and log
 TOPO/
 Results/
+figures/
 racipe_log.txt
