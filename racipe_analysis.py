@@ -4,6 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
+import itertools as it
+from matplotlib.patches import FancyArrow, Arc
+plt.rcParams['svg.hashsalt'] = ''
 
 def get_param(topo:str, i:int):
     """
@@ -153,7 +156,7 @@ def TopoToAdj(topo:str, plot:bool=True):
     # Convert to adjacency matrix
     adjMat = nx.to_pandas_adjacency(G, weight=df.columns[2])
     if plot:
-        sns.clustermap(adjMat, cmap='coolwarm', vmin=-1, vmax=1)
+        sns.heatmap(adjMat, cmap='coolwarm', vmin=-1, vmax=1, cbar=False, square=True, linewidth=2)
         plt.savefig(f'./figures/AdjMat_{topo}.svg')
         plt.clf()
         plt.close()
@@ -203,3 +206,58 @@ def TopoToInfl(topo:str, lmax:int=10, plot:bool=True):
         plt.clf()
         plt.close()
     return InflMat
+
+def plot_graphTopo(topo, layout='circular', ang=30):
+    #%%
+    df = pd.read_csv('./TOPO/'+topo+'.topo',sep='\t')
+    # Replace 2 with -1 for column 2
+    df[df.columns[2]] = df[df.columns[2]].replace(2,-1)
+    # Generate the graph
+    G = nx.from_pandas_edgelist(df, source=df.columns[0], target=df.columns[1], edge_attr=df.columns[2], create_using=nx.DiGraph)
+    # Some switch cases
+    layouts = {
+        'circular': nx.circular_layout,
+        'kamada_kawai': nx.kamada_kawai_layout,
+        'random': nx.random_layout,
+        'shell': nx.shell_layout,
+        'spring': nx.spring_layout,
+        'spectral': nx.spectral_layout,
+        'spiral': nx.spiral_layout
+    }
+    edegprop = {
+        1: ('red','->', 15),
+        -1: ('blue','-[', 2)
+    }
+    connprop = {
+        True: 'arc,angleA=15, armA=30,rad=10, angleB=90, armB=30,rad=-10',
+        False: 'arc3,rad=0.1'
+    }
+    #%%
+    # Plot the graph
+    # Get the positions
+    pos = layouts[layout](G)
+    # Draw nodes
+    plt.figure(figsize=(5,5))
+    nx.draw_networkx_nodes(G, pos, node_color=sns.color_palette('muted',n_colors=len(pos)), node_size=1500, edgecolors='black', linewidths=1, margins=0.1)
+    # plt.scatter(0,0, color='black', s=10)
+    nx.draw_networkx_labels(G, pos, font_size=12)
+    # Draw edges
+    for sign, selfe in it.product([1,-1],[False, True]):
+        edges = [e for e in G.edges if (G.edges[e][df.columns[2]] == sign) & ((e[0] == e[1]) == selfe)]
+        if not selfe:
+            nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color=edegprop[sign][0], arrowstyle=edegprop[sign][1], node_size=1500, width=2, connectionstyle=connprop[selfe], min_target_margin=25, alpha=0.5, arrowsize=edegprop[sign][2])
+        else:
+            pass
+            # Draw the loops using matplotlib
+            for edge in edges:
+                # Get the position of the node
+                posn = pos[edge[0]]
+                # Get the angles of node pos to the origin
+                angle = np.array([-ang,ang]) + np.arctan2(posn[1],posn[0]) * 180/np.pi
+                # Make the loop as arcs with arrows coming out at thetas
+    plt.tight_layout()
+    plt.savefig(f'./figures/Graph_{topo}.svg')
+    plt.clf()
+    plt.close()
+
+# %%
