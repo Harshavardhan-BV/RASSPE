@@ -1,3 +1,4 @@
+#%%
 import os
 import numpy as np
 import pandas as pd
@@ -5,9 +6,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 import itertools as it
-from matplotlib.patches import FancyArrow, Arc
+from matplotlib.patches import FancyArrowPatch
 plt.rcParams['svg.hashsalt'] = ''
-
+#%%
 def get_param(topo:str, i:int):
     """
     Get the RACIPE parameters from the specified topology for a particular replicate. Automatically adds the headers according to the prs file.
@@ -207,7 +208,7 @@ def TopoToInfl(topo:str, lmax:int=10, plot:bool=True):
         plt.close()
     return InflMat
 
-def plot_graphTopo(topo, layout='circular', ang=30):
+def plot_graphTopo(topo, layout='circular', ang=60):
     #%%
     df = pd.read_csv('./TOPO/'+topo+'.topo',sep='\t')
     # Replace 2 with -1 for column 2
@@ -236,8 +237,9 @@ def plot_graphTopo(topo, layout='circular', ang=30):
     # Plot the graph
     # Get the positions
     pos = layouts[layout](G)
+    print(pos)
     # Draw nodes
-    plt.figure(figsize=(5,5))
+    fig, ax = plt.subplots(figsize=(5,5))
     nx.draw_networkx_nodes(G, pos, node_color=sns.color_palette('muted',n_colors=len(pos)), node_size=1500, edgecolors='black', linewidths=1, margins=0.1)
     # plt.scatter(0,0, color='black', s=10)
     nx.draw_networkx_labels(G, pos, font_size=12)
@@ -247,17 +249,19 @@ def plot_graphTopo(topo, layout='circular', ang=30):
         if not selfe:
             nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color=edegprop[sign][0], arrowstyle=edegprop[sign][1], node_size=1500, width=2, connectionstyle=connprop[selfe], min_target_margin=25, alpha=0.5, arrowsize=edegprop[sign][2])
         else:
-            pass
             # Draw the loops using matplotlib
             for edge in edges:
                 # Get the position of the node
                 posn = pos[edge[0]]
                 # Get the angles of node pos to the origin
                 angle = np.array([-ang,ang]) + np.arctan2(posn[1],posn[0]) * 180/np.pi
+                # Offset posn from the original point by 1500
+                posn1 = posn + 0.20* np.array([np.cos(angle[0]*np.pi/180), np.sin(angle[0]*np.pi/180)])
+                posn2 = posn + 0.20* np.array([np.cos(angle[1]*np.pi/180), np.sin(angle[1]*np.pi/180)])
                 # Make the loop as arcs with arrows coming out at thetas
+                ax.add_patch(FancyArrowPatch(posn1, posn2, connectionstyle='arc3, rad=2', edgecolor=edegprop[sign][0], arrowstyle=edegprop[sign][1], linewidth=2, alpha=0.5, mutation_scale=edegprop[sign][2]))
     plt.tight_layout()
     plt.savefig(f'./figures/Graph_{topo}.svg')
     plt.clf()
     plt.close()
-
 # %%
