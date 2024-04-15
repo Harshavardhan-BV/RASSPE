@@ -211,7 +211,7 @@ def impure_n(n:int, m:int, nnets:int):
             # or add it to unique list
             g_uniq.append(G1)
             # Convert the Graph to dataframe
-            df_g = nx.to_pandas_edgelist(G)
+            df_g = nx.to_pandas_edgelist(G1)
             df = df_c.copy()
             # ????
             keys = list(df_g.columns.values)
