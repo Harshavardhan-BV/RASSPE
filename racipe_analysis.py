@@ -1,4 +1,3 @@
-#%%
 import os
 import numpy as np
 import pandas as pd
@@ -7,8 +6,9 @@ import seaborn as sns
 import networkx as nx
 import itertools as it
 from matplotlib.patches import FancyArrowPatch
+from sklearn.preprocessing import StandardScaler
 plt.rcParams['svg.hashsalt'] = ''
-#%%
+
 def get_param(topo:str, i:int):
     """
     Get the RACIPE parameters from the specified topology for a particular replicate. Automatically adds the headers according to the prs file.
@@ -209,7 +209,6 @@ def TopoToInfl(topo:str, lmax:int=10, plot:bool=True):
     return InflMat
 
 def plot_graphTopo(topo, layout='circular', ang=60):
-    #%%
     df = pd.read_csv('./TOPO/'+topo+'.topo',sep='\t')
     # Replace 2 with -1 for column 2
     df[df.columns[2]] = df[df.columns[2]].replace(2,-1)
@@ -233,7 +232,6 @@ def plot_graphTopo(topo, layout='circular', ang=60):
         True: 'arc,angleA=15, armA=30,rad=10, angleB=90, armB=30,rad=-10',
         False: 'arc3,rad=0.1'
     }
-    #%%
     # Plot the graph
     # Get the positions
     pos = layouts[layout](G)
@@ -264,4 +262,52 @@ def plot_graphTopo(topo, layout='circular', ang=60):
     plt.savefig(f'./figures/Graph_{topo}.svg')
     plt.clf()
     plt.close()
-# %%
+
+def discretise(sol:pd.DataFrame):
+    """
+    Do Z-normalisation on the solutions dataframe. And then discretise the solutions dataframe based on the threshold.
+
+    Parameters:
+    sol (pandas.DataFrame): The solutions dataframe.
+
+    Returns:
+    pandas.DataFrame: The discretised solutions dataframe.
+    """
+    sol = sol.copy()
+    sol.iloc[:,2:] = StandardScaler().fit_transform(sol.iloc[:,2:])
+    sol.iloc[:,2:] = np.where(sol.iloc[:,2:] > 0, 1, 0)
+    sol.iloc[:,2:] = sol.iloc[:,2:].astype(int)
+    return sol
+
+def plot_freq(d_sol:pd.DataFrame, topo:str, save=False):
+    """
+    Plot the frequency of states.
+
+    Parameters:
+    d_sol (pd.DataFrame): The discretised solutions dataframe.
+    topo (str): The name of the topofile.
+    save (bool): Whether to save the plot or not. Default is False.
+
+    Returns:
+    None
+
+    Saves:
+    ./figures/Frequency/{topo}_freq.png (File): The plot of the frequency of states.
+    """
+    # Get all the possible combinations of the states
+    combi = [''.join(map(str, combo)) for combo in it.product('01', repeat=d_sol.shape[1]-2)]
+    combi.sort(key=lambda x: x.count('1'))
+    # Count the frequency of each state
+    d_sol = d_sol.iloc[:,2:].astype(int)
+    # Concatenate the elements of each row into a single string
+    d_sol['State'] = d_sol.apply(lambda x: ''.join(x.astype(str)), axis=1)
+    d_sol['n_high'] = d_sol.iloc[:,:-1].sum(axis=1)
+    # d_sol = d_sol.melt(var_name='Gene', value_name='State')
+    sns.countplot(data=d_sol, x='State', hue='n_high', order=combi, stat='percent')
+    plt.title(topo)
+    if save:
+        os.makedirs('./figures/Frequency/', exist_ok=True)
+        plt.savefig('./figures/Frequency/'+topo+'_freq.png')
+        plt.close()
+    else:
+        plt.show()
