@@ -85,7 +85,7 @@ def get_all_sol(topo:str, n_repl:int):
 
 def plot_states(df_sol, topo:str, save=False):
     """
-    Plot the distribution of solutions.
+    Plot the distribution of expression levels.
 
     Parameters:
     df_sol (pd.DataFrame): The solutions dataframe.
@@ -96,7 +96,7 @@ def plot_states(df_sol, topo:str, save=False):
     None
 
     Saves:
-    ./figures/States/{topo}_states.png (File): The plot of the distribution of states.
+    ./figures/{topo}/Expr_dist.svg (File): The plot of the distribution of expression levels.
     """
     # Select only the states
     df_sol = df_sol.iloc[:,2:]
@@ -105,8 +105,8 @@ def plot_states(df_sol, topo:str, save=False):
     sns.kdeplot(data=df_sol, x='State', hue='Gene', fill=True)
     plt.title(topo)
     if save:
-        os.makedirs('./figures/States/', exist_ok=True)
-        plt.savefig('./figures/States/'+topo+'_states.png')
+        os.makedirs(f'./figures/{topo}/', exist_ok=True)
+        plt.savefig(f'./figures/{topo}/Expr_dist.svg')
         plt.close()
     else:
         plt.show()
@@ -265,7 +265,7 @@ def plot_graphTopo(topo, layout='circular', ang=60):
 
 def discretise(sol:pd.DataFrame):
     """
-    Do Z-normalisation on the solutions dataframe. And then discretise the solutions dataframe based on the threshold.
+    Do Z-normalisation on the solutions dataframe. And then discretise the solutions dataframe.
 
     Parameters:
     sol (pandas.DataFrame): The solutions dataframe.
@@ -281,7 +281,7 @@ def discretise(sol:pd.DataFrame):
 
 def plot_freq(d_sol:pd.DataFrame, topo:str, save=False):
     """
-    Plot the frequency of states.
+    Plot the frequency of states as a barplot.
 
     Parameters:
     d_sol (pd.DataFrame): The discretised solutions dataframe.
@@ -292,22 +292,75 @@ def plot_freq(d_sol:pd.DataFrame, topo:str, save=False):
     None
 
     Saves:
-    ./figures/Frequency/{topo}_freq.png (File): The plot of the frequency of states.
+    ./figures/{topo}/State_freq.svg (File): The plot of the frequency of states as a barplot.
     """
     # Get all the possible combinations of the states
-    combi = [''.join(map(str, combo)) for combo in it.product('01', repeat=d_sol.shape[1]-2)]
+    n = d_sol.shape[1]-2
+    combi = [''.join(map(str, combo)) for combo in it.product('01', repeat=n)]
     combi.sort(key=lambda x: x.count('1'))
     # Count the frequency of each state
+    d_sol = d_sol.copy()
     d_sol = d_sol.iloc[:,2:].astype(int)
     # Concatenate the elements of each row into a single string
     d_sol['State'] = d_sol.apply(lambda x: ''.join(x.astype(str)), axis=1)
     d_sol['n_high'] = d_sol.iloc[:,:-1].sum(axis=1)
-    # d_sol = d_sol.melt(var_name='Gene', value_name='State')
-    sns.countplot(data=d_sol, x='State', hue='n_high', order=combi, stat='percent')
+    cmap = sns.color_palette('rocket', n_colors=n+1)
+    sns.countplot(data=d_sol, x='State', hue='n_high', order=combi, stat='proportion', palette=cmap, hue_order=range(n+1))
+    plt.ylabel('Frequency')
+    plt.legend(title='$n_{high}$')
     plt.title(topo)
     if save:
-        os.makedirs('./figures/Frequency/', exist_ok=True)
-        plt.savefig('./figures/Frequency/'+topo+'_freq.png')
+        os.makedirs(f'./figures/{topo}/', exist_ok=True)
+        plt.savefig(f'./figures/{topo}/State_freq.svg')
+        plt.close()
+    else:
+        plt.show()
+
+def pie_freq(d_sol:pd.DataFrame, topo:str, save=False):
+    # Get all the possible combinations of the states
+    n = d_sol.shape[1]-2
+    combi = [''.join(map(str, combo)) for combo in it.product('01', repeat=n)]
+    combi.sort(key=lambda x: x.count('1'))
+    # Count the frequency of each state
+    d_sol = d_sol.copy()
+    d_sol = d_sol.iloc[:,2:].astype(int)
+    # Concatenate the elements of each row into a single string
+    d_sol['State'] = d_sol.apply(lambda x: ''.join(x.astype(str)), axis=1)
+    # Count occurance of State
+    counts = d_sol['State'].value_counts()
+    counts = counts.reindex(combi, fill_value=0)
+    plt.pie(counts, labels=counts.index, labeldistance=None, wedgeprops={'linewidth':1, 'edgecolor': 'white'})
+    plt.legend(title='State', loc='center left', bbox_to_anchor=(1, 0, 0.5, 1))
+    plt.title(topo)
+    if save:
+        os.makedirs(f'./figures/{topo}/', exist_ok=True)
+        plt.savefig(f'./figures/{topo}/Pie_freq.svg')
+        plt.close()
+    else:
+        plt.show()
+
+def cluster_states(sol:pd.DataFrame, topo:str, save=False, fname='Expr_clustermap'):
+    """
+    Cluster the states based on the expression levels.
+
+    Parameters:
+    sol (pd.DataFrame): The solutions dataframe.
+    topo (str): The name of the topofile.
+    save (bool): Whether to save the plot or not. Default is False.
+
+    Returns:
+    None
+
+    Saves:
+    ./figures/{topo}/Expr_clustermap.svg (File): The plot of the clustered states.
+    """
+    z_sol = StandardScaler().fit_transform(sol)
+    z_sol = pd.DataFrame(z_sol, columns=sol.columns, index=sol.index)
+    sns.clustermap(z_sol.iloc[:,2:], cmap='coolwarm', center=0, yticklabels=False)
+    plt.title(topo)
+    if save:
+        os.makedirs(f'./figures/{topo}/', exist_ok=True)
+        plt.savefig(f'./figures/{topo}/{fname}.png')
         plt.close()
     else:
         plt.show()
