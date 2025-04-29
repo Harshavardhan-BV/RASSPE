@@ -123,6 +123,31 @@ def team_n_rand_split(n:int, m_tot:int):
     G.to_csv(fname, sep='\t', index=False)
     return G
 
+def embedded(G_t:nx.classes.digraph.DiGraph, size:int, density:float, nnets:int, core_name:str):
+    if (size<=1):
+        raise ValueError('size must be greater than 1')
+    n = G_t.number_of_nodes()
+    for i in range(nnets):
+        # Generate a random graph
+        G_r = nx.gnm_random_graph(size, round(density*size), directed=True)
+        # Add edge weights to the random graph
+        act = np.random.randint(1,3,len(list(G_r.edges)))
+        nx.set_edge_attributes(G_r, dict(zip(G_r.edges, act)), 'weight')
+        # Add the toggle_n graph to the random graph 
+        G = nx.compose(G_t, G_r)
+        # Generate (n x size) randint matrix for the connections between the two graphs
+        G_c = pd.DataFrame(0,columns=G.nodes, index=G.nodes)
+        G_c.loc[list(G_r.nodes), list(G_t.nodes)] = np.random.randint(0,3,(size,n))
+        G_c.loc[list(G_t.nodes), list(G_r.nodes)] = np.random.randint(0,3,(n,size))
+        # Convert to networkx graph       
+        G_c = nx.from_pandas_adjacency(G_c, create_using=nx.DiGraph)
+        # Add the connections to the graph
+        G = nx.compose(G, G_c)
+        # Save the graph topofile
+        fname = f'./TOPO/Embedded_{core_name}_{size}_{density}_{i}.topo'
+        df = nx.to_pandas_edgelist(G)
+        df.to_csv(fname, sep='\t', index=False)
+
 def embedded_toggle(n:int, size:int, density:float, nnets:int, Self=None):
     """
     Generates directed graphs of toggle_n embedded in a random graphs.
@@ -146,26 +171,7 @@ def embedded_toggle(n:int, size:int, density:float, nnets:int, Self=None):
     G_t = toggle_n(n, Self)
     G_t.columns = ['source', 'target', 'weight']
     G_t = nx.from_pandas_edgelist(G_t, source='source', target='target', edge_attr='weight', create_using=nx.DiGraph)
-    for i in range(nnets):
-        # Generate a random graph
-        G_r = nx.gnm_random_graph(size, round(density*size), directed=True)
-        # Add edge weights to the random graph
-        act = np.random.randint(1,3,len(list(G_r.edges)))
-        nx.set_edge_attributes(G_r, dict(zip(G_r.edges, act)), 'weight')
-        # Add the toggle_n graph to the random graph 
-        G = nx.compose(G_t, G_r)
-        # Generate (n x size) randint matrix for the connections between the two graphs
-        G_c = pd.DataFrame(0,columns=G.nodes, index=G.nodes)
-        G_c.loc[list(G_r.nodes), list(G_t.nodes)] = np.random.randint(0,3,(size,n))
-        G_c.loc[list(G_t.nodes), list(G_r.nodes)] = np.random.randint(0,3,(n,size))
-        # Convert to networkx graph       
-        G_c = nx.from_pandas_adjacency(G_c, create_using=nx.DiGraph)
-        # Add the connections to the graph
-        G = nx.compose(G, G_c)
-        # Save the graph topofile
-        fname = f'./TOPO/Embedded_T{n}_{size}_{density}_{i}.topo'
-        df = nx.to_pandas_edgelist(G)
-        df.to_csv(fname, sep='\t', index=False)
+    embedded(G_t, size, density, nnets, f'T{n}')    
 
 def impure_n(n:int, m:int, nnets:int):
     """
